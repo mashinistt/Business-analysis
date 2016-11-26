@@ -1,0 +1,103 @@
+---
+title: "Контрольные карты Шухарта"
+author: "Владимир Шаталов"
+date: "17 сентября 2016 г."
+output: html_document
+---
+Требуется построить X и S карты Шухарта для первых и вторых 10 дней по набору данных Data_quality_1.csv
+```{r}
+knitr::opts_chunk$set(fih.height=20,fig.width=10,fig.align="center")
+
+```
+
+## Обработка данных
+<br>
+Считаем данные и разобьем их на два датасета
+```{r}
+df<-read.table("C:\\Users\\Vladimir\\Downloads\\Data_quality_1.csv"
+               ,header=T,sep=";",dec=",")
+df1<-df[1:10,]
+df2<-df[11:20,]
+```
+<br>
+Посмотрим на первый датасет
+```{r, echo=FALSE}
+knitr::kable(df1,digits=2)
+```
+
+<br>
+Посчитаем средние значения и стандартные отклонения
+```{r}
+mean1<-mean(df1$Mmeas)
+sd1<-mean(apply(df1[,2:9],1,sd))
+df1<-cbind(df1,sd=apply(df1[,2:9],1,sd))
+h1<-mean1+3*sd1
+l1<-mean1-3*sd1
+h11<-sd1+3*sd1
+l11<-sd1-3*sd1
+
+
+
+mean2<-mean(df2$Mmeas)
+sd2<-mean(apply(df2[,2:9],1,sd))
+df2<-cbind(df2,sd=apply(df2[,2:9],1,sd))
+h2<-mean2+3*sd2
+l2<-mean2-3*sd2
+h22<-sd2+3*sd2
+l22<-sd2-3*sd2
+
+```
+
+<br>
+Посмотрим на получившийся первый датасет
+
+```{r, echo=FALSE}
+knitr::kable(df1,digits=2)
+```
+
+## Построение графиков
+<br>
+Загрузим необходимые библиотеки.ggplot2, ggthemes и gridExtra необходимо предварительно скачать
+```{r,warning=FALSE}
+library(ggthemes)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+```
+<br>
+Построим графики для первых 10 дней
+```{r}
+
+x_map_1<-ggplot(df1,aes(Date,Mmeas,group=1))+
+  geom_hline(yintercept = c(l1,mean1,h1),size=1.5,col=c("#f24a3e","#d89d6a","#f24a3e"),linetype="dotted")+
+  geom_line(col="#d7ffab")+geom_point(size=5,col="white")+theme_solarized(light=F)+
+  labs(title="X карта Шухарта за первые 10 дней",x="Дата",y="Средние показатели")+
+  theme(text=element_text(size=13))
+
+s_map_1<-ggplot(df1,aes(Date,sd,group=1))+
+  geom_hline(yintercept = c(l11,sd1,h11),size=1.5,col=c("#f24a3e","#d89d6a","#f24a3e"),linetype="dotted")+
+  geom_line(col="#d7ffab")+geom_point(size=5,col="white")+theme_solarized(light=F)+
+  labs(title="S карта Шухарта за первые 10 дней",x="Дата",y="Средние показатели")+
+  theme(text=element_text(size=13))
+
+grid.arrange(x_map_1,s_map_1,ncol=1)
+
+```
+<br>
+Аналогичным образом построим их для вторых 10 дней
+<br>
+```{r,echo=FALSE}
+x_map_2<-ggplot(df2,aes(Date,Mmeas,group=1))+
+  geom_hline(yintercept = c(l2,mean2,h2),size=1.5,col=c("#f24a3e","#d89d6a","#f24a3e"),linetype="dotted")+
+  geom_line(col="#d7ffab")+geom_point(size=5,col="white")+theme_solarized(light=F)+
+  labs(title="X карта Шухарта за вторые 10 дней",x="Дата",y="Средние показатели")+
+  theme(text=element_text(size=13))
+
+s_map_2<-ggplot(df2,aes(Date,sd,group=1))+
+  geom_hline(yintercept = c(l22,sd2,h22),size=1.5,col=c("#f24a3e","#d89d6a","#f24a3e"),linetype="dotted")+
+  geom_line(col="#d7ffab")+geom_point(size=5,col="white")+theme_solarized(light=F)+
+  labs(title="S карта Шухарта за вторые 10 дней",x="Дата",y="Средние показатели")+
+  theme(text=element_text(size=13))
+
+grid.arrange(x_map_2,s_map_2,ncol=1)
+```

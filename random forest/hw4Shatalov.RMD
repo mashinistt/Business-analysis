@@ -1,0 +1,157 @@
+---
+title: "Random Forest"
+author: "Владимир Шаталов"
+date: "13 ноября 2016 г."
+output: html_document
+---
+
+Будем предсказывать область Италии, в которой изготовлено оливковое масло, с помощью случайного леса.
+
+```{r}
+knitr::opts_chunk$set(fih.height=20,fig.width=10,fig.align="center")
+
+```
+Загружаем данные
+```{r}
+olive<-read.table("D:\\olive_data.csv", header=F,sep=";")
+names(olive)=c("area","region","palmitic","palmitoleic","stearic", "oleic","linoleic","linolenic","arachidic",
+               "eicosenoic")
+olive2<-olive[,-c(2)]
+knitr::kable(olive[1:10,])
+```
+
+Сделаем тренировочную и тестовую выборки
+```{r}
+set.seed(42)
+s<-sample(1:nrow(olive2),400,replace=F)
+train<-olive2[s,-1]
+train_labels<-as.factor(olive2[s,1])
+test<-olive2[-s,-1]
+test_labels<-as.factor(olive2[-s,1])
+```
+
+Загрузим необходимый пакет
+```{r,warning=FALSE,message=FALSE}
+library(randomForest)
+```
+
+Как распределены классы в тренировочной и тестовой выборках
+```{r}
+barplot(table(train_labels))
+barplot(table(test_labels))
+```
+Видно, что более менее одинаково.
+Построим первую модель. Как советовал Лео Брейман берем размер выборки для дерева
+ceiling(0.632*N), количество переменных для дерева sqrt(M), минимальное число наблюдений в узле 1 и делаем выборки для каждого дерева с повторениями. Берем количество деревьев с запасом
+```{r}
+set.seed(42)
+model1<-randomForest(train,train_labels,ntree=500,mtry=3,sampsize=253,nodesize = 1,replace=T,importance = T,localImp = F,proximity = F,norm.votes = T,do.trace = 25,keep.forest = T,corr.bias = F,keep.inbag = F)
+```
+Модель сразу показывает очень хороший результат и ошибка на отложенной выборке составляет чуть больше 5%.Как и ожидалось, можно взять гораздо меньше деревьев. Построим такую же модель но с меньшим количеством деревьев.
+```{r}
+set.seed(42)
+model1_opt<-randomForest(train,train_labels,ntree=100,mtry=3,sampsize=253,nodesize = 1,replace=T,importance = T,localImp = F, proximity = F,norm.votes = T,do.trace =10,keep.forest = T,corr.bias = F,keep.inbag = F)
+```
+Точность на тренировочной выборке
+```{r}
+p1_train<-predict(model1_opt,train)
+sum(diag(table(p1_train,train_labels)))/sum(table(p1_train,train_labels))
+```
+Точность на тестовой выборке
+```{r}
+p1<-predict(model1_opt,test)
+sum(diag(table(p1,test_labels)))/sum(table(p1,test_labels))
+```
+Посмотрим,какие из переменных важны.
+```{r}
+varImpPlot(model1_opt)
+```
+Результаты немного отличаются, но в целом переменные сильно влияющие на точность сильно влияют и на индекс Джини. Можно еще посмотреть, как часто какие переменные использовались при построении леса.
+```{r}
+using_variables<-varUsed(model1_opt, by.tree=F,count=T)
+names(using_variables)<-c("palmitic","palmitoleic","stearic","oleic","linoleic","linolenic","arachidic",
+"eicosenoic")
+barplot(using_variables)
+```
+Результаты представляют собой нечто среднее между результатами предыдущих двух графиков. Но так как, на данный момент основной задачей является только предсказание, а не интерпретация результатов, а также потому, что я не очень много понимаю в маслах, не будем останавливаться на этих графиках.
+<br>
+Попробуем поэксперементировать с параметрами модели.
+Увеличим параметр nodesize до 5.
+```{r}
+set.seed(42)
+model2<-randomForest(train,train_labels,ntree=150,mtry=3,sampsize=253,nodesize = 5,replace=T,importance = T,localImp = F,proximity = F,norm.votes = T,do.trace = 15,keep.forest = T, corr.bias = F,keep.inbag = F)
+```
+Точность на тренировочной выборке
+```{r}
+p2_train<-predict(model2,train)
+sum(diag(table(p2_train,train_labels)))/sum(table(p2_train,train_labels))
+```
+Точность на тестовой выборке
+```{r}
+p2<-predict(model2,test)
+sum(diag(table(p2,test_labels)))/sum(table(p2,test_labels))
+```
+Как видим нам удалось улучшить результат больше, чем на процент. Хотя ошибка на Out-of-bag выборке выросла.
+<br>
+Увеличим nodesize до 10
+```{r}
+set.seed(42)
+model3<-randomForest(train,train_labels,ntree=100,mtry=3,sampsize=253,nodesize = 10,replace=T,importance = T,localImp = F,proximity = F,norm.votes = T,do.trace = 15,keep.forest = T,corr.bias = F,keep.inbag = F)
+```
+Точность на тренировочной выборке
+```{r}
+p3_train<-predict(model3,train)
+sum(diag(table(p3_train,train_labels)))/sum(table(p3_train,train_labels))
+```
+Точность на тестовой выборке
+```{r}
+p3<-predict(model3,test)
+sum(diag(table(p3,test_labels)))/sum(table(p3,test_labels))
+```
+Мы уменьшили ошибку на Out-of-bag выборке, но не смогли уменьшить ее на тестовой выборке.
+<br>
+<p>Теперь проанализируем ошибки.</p>
+```{r}
+barplot(table(train_labels))
+table(p1,test_labels)
+table(train_labels)
+```
+Как видим, есть несколько областей, по которым у нас меньше данных, чем по остальным. На них мы и ошибаемся. Искусственно добавим такие наблюдения в тренировочную выборку.
+```{r}
+df_cs<-olive2[which(olive2$area=="Coast-Sardinia"),]
+df_cs<-df_cs[1:20,]
+
+df_napl<-olive2[which(olive2$area=="North-Apulia"),]
+df_napl<-df_napl[1:25,]
+
+df_sc<-olive2[which(olive2$area=="Sicily"),]
+df_sc<-df_sc[1:25,]
+
+train_labels<-c(train_labels,df_cs$area,df_napl$area,df_sc$area)
+df_cs<-df_cs[,-1]
+df_napl<-df_napl[,-1]
+df_sc<-df_sc[,-1]
+
+df_train1<-rbind(df_cs,df_napl,df_sc)
+df_train<-rbind(train,df_train1)
+
+train_labels<-as.factor(train_labels)
+```
+И построим модель по новой обучающей выборке
+```{r}
+set.seed(2016)
+model1_new<-randomForest(df_train,train_labels,ntree=70,mtry=3,sampsize=292,nodesize = 1,replace=T,importance = T,localImp = F, proximity = F,norm.votes = T,do.trace =10,keep.forest = T,
+corr.bias = F,keep.inbag = F)
+
+```
+Точность на тренировочной выборке
+```{r}
+p3_train<-predict(model1_new,df_train)
+sum(diag(table(p3_train,train_labels)))/sum(table(p3_train,train_labels))
+```
+Точность на тестовой выборке
+```{r}
+p3<-predict(model1_new,test)
+sum(diag(table(p3,test_labels)))/sum(table(p3,test_labels))
+```
+Таким образом, зная, как строятся деревья, можно понять, что могло снижать точность классификатора, и увеличить точность.
